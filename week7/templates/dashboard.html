@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Building Weekend Dip | Energy Analytics Dashboard</title>
+    <meta name="description" content="K-Means clustering and regression-based energy forecasting dashboard for admin building weekend usage dip analysis.">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: #1a2035;
+            --bg-card-hover: #1f2847;
+            --border: #2a3555;
+            --text-primary: #f0f4ff;
+            --text-secondary: #8b95b0;
+            --text-muted: #5a6580;
+            --accent-blue: #3b82f6;
+            --accent-cyan: #06b6d4;
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+            --accent-red: #ef4444;
+            --gradient-1: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            --gradient-2: linear-gradient(135deg, #06b6d4, #3b82f6);
+            --gradient-3: linear-gradient(135deg, #8b5cf6, #ec4899);
+            --gradient-4: linear-gradient(135deg, #10b981, #06b6d4);
+            --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.4);
+            --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+            --shadow-glow-blue: 0 0 40px rgba(59, 130, 246, 0.15);
+            --shadow-glow-purple: 0 0 40px rgba(139, 92, 246, 0.15);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .bg-mesh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(6, 182, 212, 0.04) 0%, transparent 70%);
+        }
+
+        .navbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(10, 14, 26, 0.85);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(42, 53, 85, 0.5);
+            padding: 0 2rem;
+        }
+
+        .navbar-inner {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 70px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: var(--gradient-1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .logo-text {
+            font-size: 1.1rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #f0f4ff, #8b95b0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-badge {
+            font-size: 0.65rem;
+            padding: 3px 8px;
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--accent-blue);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: var(--accent-green);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-green);
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+        }
+
+        .main-content {
+            position: relative;
+            z-index: 1;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .hero-section {
+            text-align: center;
+            padding: 2.5rem 0 2rem;
+        }
+
+        .hero-title {
+            font-size: 2.4rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #f0f4ff 0%, #3b82f6 50%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.6rem;
+            letter-spacing: -0.5px;
+        }
+
+        .hero-subtitle {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.2rem;
+            margin-bottom: 2rem;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(59, 130, 246, 0.4);
+            box-shadow: var(--shadow-glow-blue);
+        }
+
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .kpi-card:nth-child(1)::before { background: var(--gradient-1); }
+        .kpi-card:nth-child(2)::before { background: var(--gradient-2); }
+        .kpi-card:nth-child(3)::before { background: var(--gradient-3); }
+        .kpi-card:nth-child(4)::before { background: var(--gradient-4); }
+        .kpi-card:nth-child(5)::before { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+
+        .kpi-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .kpi-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .kpi-card:nth-child(1) .kpi-icon { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); }
+        .kpi-card:nth-child(2) .kpi-icon { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
+        .kpi-card:nth-child(3) .kpi-icon { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); }
+        .kpi-card:nth-child(4) .kpi-icon { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+        .kpi-card:nth-child(5) .kpi-icon { background: rgba(245, 158, 11, 0.15); color: var(--accent-orange); }
+
+        .kpi-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.3rem;
+        }
+
+        .kpi-card:nth-child(1) .kpi-value { color: var(--accent-blue); }
+        .kpi-card:nth-child(2) .kpi-value { color: var(--accent-cyan); }
+        .kpi-card:nth-child(3) .kpi-value { color: var(--accent-purple); }
+        .kpi-card:nth-child(4) .kpi-value { color: var(--accent-green); }
+        .kpi-card:nth-child(5) .kpi-value { color: var(--accent-orange); }
+
+        .kpi-desc {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .chart-card:hover {
+            border-color: rgba(139, 92, 246, 0.3);
+            box-shadow: var(--shadow-glow-purple);
+        }
+
+        .chart-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.2rem;
+        }
+
+        .chart-title-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        .chart-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .chart-subtitle {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 320px;
+        }
+
+        .chart-container.small {
+            height: 260px;
+        }
+
+        .cluster-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .cluster-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.3rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .cluster-card:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-card);
+        }
+
+        .cluster-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+        }
+
+        .cluster-card:nth-child(1) .cluster-badge { background: rgba(59, 130, 246, 0.15); color: var(--accent-blue); border: 1px solid rgba(59, 130, 246, 0.3); }
+        .cluster-card:nth-child(2) .cluster-badge { background: rgba(236, 72, 153, 0.15); color: var(--accent-pink); border: 1px solid rgba(236, 72, 153, 0.3); }
+        .cluster-card:nth-child(3) .cluster-badge { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .cluster-card:nth-child(4) .cluster-badge { background: rgba(245, 158, 11, 0.15); color: var(--accent-orange); border: 1px solid rgba(245, 158, 11, 0.3); }
+
+        .cluster-name {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+
+        .cluster-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .cluster-stat {
+            padding: 0.4rem 0;
+        }
+
+        .cluster-stat-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .cluster-stat-value {
+            font-size: 0.9rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+        }
+
+        .metrics-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .metric-item {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(42, 53, 85, 0.5);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .metric-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        .metric-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 0.3rem;
+        }
+
+        .metric-value.good { color: var(--accent-green); }
+        .metric-value.info { color: var(--accent-blue); }
+        .metric-value.warn { color: var(--accent-orange); }
+        .metric-value.accent { color: var(--accent-purple); }
+
+        .metric-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 3px solid rgba(59, 130, 246, 0.1);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 1.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            border-top: 1px solid rgba(42, 53, 85, 0.3);
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            .hero-title {
+                font-size: 1.8rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 1rem;
+            }
+            .kpi-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .cluster-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .accuracy-ring-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3rem;
+            padding: 1rem 0;
+        }
+
+        .accuracy-ring {
+            position: relative;
+            width: 160px;
+            height: 160px;
+        }
+
+        .accuracy-ring svg {
+            transform: rotate(-90deg);
+        }
+
+        .accuracy-ring-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.05);
+            stroke-width: 8;
+        }
+
+        .accuracy-ring-fill {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dashoffset 1.5s ease;
+        }
+
+        .accuracy-ring-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .accuracy-ring-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .accuracy-ring-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .tooltip-custom {
+            background: rgba(26, 32, 53, 0.95) !important;
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border) !important;
+            border-radius: 10px !important;
+            padding: 10px 14px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-mesh"></div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Initializing Energy Analytics...</div>
+    </div>
+
+    <nav class="navbar">
+        <div class="navbar-inner">
+            <div class="logo">
+                <div class="logo-icon"><i class="fas fa-building"></i></div>
+                <div>
+                    <div class="logo-text">Admin Building Analytics</div>
+                </div>
+                <div class="logo-badge">WEEKEND DIP v2.0</div>
+            </div>
+            <div class="nav-status">
+                <div class="status-dot"></div>
+                <span>Model Active</span>
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content" id="mainContent" style="opacity: 0;">
+        <section class="hero-section fade-in">
+            <h1 class="hero-title">Weekend Energy Dip Analysis</h1>
+            <p class="hero-subtitle">K-Means Clustering & Gradient Boosting Regression pipeline analyzing admin building usage patterns to forecast consumption and quantify savings potential.</p>
+        </section>
+
+        <div class="kpi-grid fade-in" id="kpiGrid"></div>
+
+        <section class="fade-in" style="margin-bottom: 2rem;">
+            <div class="section-title"><i class="fas fa-bullseye" style="color: var(--accent-green);"></i> Model Performance</div>
+            <div class="section-subtitle">Overall accuracy metrics across all cluster-specific regressors</div>
+            <div class="metrics-section">
+                <div class="accuracy-ring-container" id="accuracyRings"></div>
+                <div class="metrics-grid" id="metricsGrid"></div>
+            </div>
+        </section>
+
+        <section class="fade-in" style="margin-bottom: 2rem;">
+            <div class="section-title"><i class="fas fa-layer-group" style="color: var(--accent-purple);"></i> Usage Clusters</div>
+            <div class="section-subtitle">K-Means identified usage profiles based on energy patterns, occupancy, and temporal features</div>
+            <div class="cluster-grid" id="clusterGrid"></div>
+        </section>
+
+        <div class="dashboard-grid fade-in">
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <div class="chart-icon" style="background: rgba(236, 72, 153, 0.15); color: var(--accent-pink);"><i class="fas fa-chart-pie"></i></div>
+                        <div>
+                            <div class="chart-title">Savings Breakdown</div>
+                            <div class="chart-subtitle">Potential weekend savings by category</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="savingsPieChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <div class="chart-icon" style="background: rgba(139, 92, 246, 0.15); color: var(--accent-purple);"><i class="fas fa-chart-pie"></i></div>
+                        <div>
+                            <div class="chart-title">Cluster Distribution</div>
+                            <div class="chart-subtitle">Daily profile distribution across clusters</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="clusterPieChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card full-width">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <div class="chart-icon" style="background: rgba(59, 130, 246, 0.15); color: var(--accent-blue);"><i class="fas fa-chart-area"></i></div>
+                        <div>
+                            <div class="chart-title">Weekday vs Weekend Profile</div>
+                            <div class="chart-subtitle">Average hourly energy consumption comparison</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="profileChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card full-width">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <div class="chart-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-green);"><i class="fas fa-chart-line"></i></div>
+                        <div>
+                            <div class="chart-title">7-Day Forecast</div>
+                            <div class="chart-subtitle">Predicted hourly consumption for each day of the week</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container" style="height: 350px;">
+                    <canvas id="forecastChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <div class="chart-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--accent-orange);"><i class="fas fa-chart-bar"></i></div>
+                        <div>
+                            <div class="chart-title">Monthly Trends</div>
+                            <div class="chart-subtitle">Weekday vs Weekend by month</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <div class="chart-icon" style="background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan);"><i class="fas fa-chart-pie"></i></div>
+                        <div>
+                            <div class="chart-title">Energy Component Mix</div>
+                            <div class="chart-subtitle">Weekend energy breakdown by component</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="componentPieChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card full-width">
+                <div class="chart-header">
+                    <div class="chart-title-group">
+                        <div class="chart-icon" style="background: rgba(239, 68, 68, 0.15); color: var(--accent-red);"><i class="fas fa-bolt"></i></div>
+                        <div>
+                            <div class="chart-title">Weekend Dip Quantification</div>
+                            <div class="chart-subtitle">Hour-by-hour savings opportunity analysis</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="chart-container" style="height: 300px;">
+                    <canvas id="dipChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p>Admin Building Weekend Dip Analytics &mdash; K-Means Clustering + Gradient Boosting Regression Pipeline</p>
+        </footer>
+    </main>
+
+    <script>
+        Chart.register(ChartDataLabels);
+
+        const COLORS = {
+            blue: '#3b82f6',
+            cyan: '#06b6d4',
+            purple: '#8b5cf6',
+            pink: '#ec4899',
+            green: '#10b981',
+            orange: '#f59e0b',
+            red: '#ef4444',
+            yellow: '#eab308',
+            clusterColors: ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4']
+        };
+
+        const chartDefaults = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#8b95b0',
+                        font: { family: 'Inter', size: 11, weight: '500' },
+                        padding: 15,
+                        usePointStyle: true,
+                        pointStyle: 'rectRounded',
+                        pointStyleWidth: 12
+                    }
+                },
+                datalabels: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(26, 32, 53, 0.95)',
+                    titleColor: '#f0f4ff',
+                    bodyColor: '#8b95b0',
+                    borderColor: '#2a3555',
+                    borderWidth: 1,
+                    cornerRadius: 10,
+                    padding: 12,
+                    titleFont: { family: 'Inter', size: 12, weight: '600' },
+                    bodyFont: { family: 'JetBrains Mono', size: 11 }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#5a6580', font: { family: 'Inter', size: 10 } },
+                    grid: { color: 'rgba(42, 53, 85, 0.3)' },
+                    border: { color: 'rgba(42, 53, 85, 0.5)' }
+                },
+                y: {
+                    ticks: { color: '#5a6580', font: { family: 'JetBrains Mono', size: 10 } },
+                    grid: { color: 'rgba(42, 53, 85, 0.3)' },
+                    border: { color: 'rgba(42, 53, 85, 0.5)' }
+                }
+            }
+        };
+
+        async function loadDashboard() {
+            const response = await fetch('/api/dashboard');
+            const data = await response.json();
+            renderKPIs(data);
+            renderAccuracy(data);
+            renderMetrics(data);
+            renderClusters(data);
+            renderSavingsPie(data);
+            renderClusterPie(data);
+            renderProfileChart(data);
+            renderForecastChart(data);
+            renderMonthlyChart(data);
+            renderComponentPie(data);
+            renderDipChart(data);
+
+            document.getElementById('loadingOverlay').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                document.getElementById('mainContent').style.opacity = '1';
+            }, 500);
+        }
+
+        function renderKPIs(data) {
+            const s = data.savings;
+            const m = data.metrics.overall_regression;
+            const c = data.metrics.clustering;
+
+            const kpis = [
+                { icon: 'fa-arrow-trend-down', label: 'WEEKEND DIP', value: s.dip_percentage + '%', desc: 'Lower usage on weekends' },
+                { icon: 'fa-dollar-sign', label: 'ANNUAL SAVINGS', value: '$' + Number(s.potential_savings_usd).toLocaleString(), desc: 'Potential cost reduction' },
+                { icon: 'fa-bullseye', label: 'MODEL ACCURACY', value: m.accuracy_pct + '%', desc: 'Regression accuracy (100-MAPE)' },
+                { icon: 'fa-layer-group', label: 'CLUSTERS', value: c.n_clusters, desc: 'Silhouette: ' + c.silhouette_score },
+                { icon: 'fa-bolt', label: 'SAVINGS POTENTIAL', value: Number(s.potential_savings_kwh).toLocaleString() + ' kWh', desc: s.savings_pct_of_total + '% of annual usage' }
+            ];
+
+            const grid = document.getElementById('kpiGrid');
+            grid.innerHTML = kpis.map(k => `
+                <div class="kpi-card" id="kpi-${k.label.replace(/\s+/g, '-').toLowerCase()}">
+                    <div class="kpi-header">
+                        <div class="kpi-icon"><i class="fas ${k.icon}"></i></div>
+                        <div class="kpi-label">${k.label}</div>
+                    </div>
+                    <div class="kpi-value">${k.value}</div>
+                    <div class="kpi-desc">${k.desc}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderAccuracy(data) {
+            const m = data.metrics.overall_regression;
+            const c = data.metrics.clustering;
+
+            const rings = [
+                { value: m.accuracy_pct, label: 'Accuracy', color: COLORS.green, max: 100 },
+                { value: m.avg_r2 * 100, label: 'R² Score', color: COLORS.blue, max: 100 },
+                { value: c.silhouette_score * 100, label: 'Silhouette', color: COLORS.purple, max: 100 }
+            ];
+
+            const container = document.getElementById('accuracyRings');
+            container.innerHTML = rings.map(r => {
+                const circumference = 2 * Math.PI * 65;
+                const offset = circumference - (r.value / r.max) * circumference;
+                return `
+                    <div class="accuracy-ring">
+                        <svg width="160" height="160">
+                            <circle class="accuracy-ring-bg" cx="80" cy="80" r="65"></circle>
+                            <circle class="accuracy-ring-fill" cx="80" cy="80" r="65"
+                                stroke="${r.color}" stroke-dasharray="${circumference}"
+                                stroke-dashoffset="${offset}"></circle>
+                        </svg>
+                        <div class="accuracy-ring-text">
+                            <div class="accuracy-ring-value" style="color: ${r.color};">${r.value.toFixed(1)}%</div>
+                            <div class="accuracy-ring-label">${r.label}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderMetrics(data) {
+            const m = data.metrics.overall_regression;
+            const c = data.metrics.clustering;
+
+            const metrics = [
+                { value: m.avg_mae.toFixed(3), label: 'Avg MAE', cls: 'info' },
+                { value: m.avg_rmse.toFixed(3), label: 'Avg RMSE', cls: 'info' },
+                { value: m.avg_r2.toFixed(4), label: 'Avg R² Score', cls: 'good' },
+                { value: m.avg_mape.toFixed(2) + '%', label: 'Avg MAPE', cls: 'warn' },
+                { value: c.n_clusters, label: 'Optimal K', cls: 'accent' },
+                { value: c.calinski_harabasz.toFixed(0), label: 'Calinski-Harabasz', cls: 'info' }
+            ];
+
+            const grid = document.getElementById('metricsGrid');
+            grid.innerHTML = metrics.map(m => `
+                <div class="metric-item">
+                    <div class="metric-value ${m.cls}">${m.value}</div>
+                    <div class="metric-label">${m.label}</div>
+                </div>
+            `).join('');
+        }
+
+        function renderClusters(data) {
+            const grid = document.getElementById('clusterGrid');
+            grid.innerHTML = data.cluster_profiles.map((cp, i) => `
+                <div class="cluster-card">
+                    <div class="cluster-badge"><i class="fas fa-circle" style="font-size: 6px;"></i> Cluster ${cp.id}</div>
+                    <div class="cluster-name">${cp.label}</div>
+                    <div class="cluster-stats">
+                        <div class="cluster-stat">
+                            <div class="cluster-stat-label">Days</div>
+                            <div class="cluster-stat-value">${cp.count}</div>
+                        </div>
+                        <div class="cluster-stat">
+                            <div class="cluster-stat-label">Avg kWh</div>
+                            <div class="cluster-stat-value">${cp.avg_kwh}</div>
+                        </div>
+                        <div class="cluster-stat">
+                            <div class="cluster-stat-label">Weekend %</div>
+                            <div class="cluster-stat-value">${cp.weekend_pct}%</div>
+                        </div>
+                        <div class="cluster-stat">
+                            <div class="cluster-stat-label">Occupancy</div>
+                            <div class="cluster-stat-value">${cp.avg_occupancy}</div>
+                        </div>
+                        <div class="cluster-stat">
+                            <div class="cluster-stat-label">HVAC %</div>
+                            <div class="cluster-stat-value">${cp.hvac_share}%</div>
+                        </div>
+                        <div class="cluster-stat">
+                            <div class="cluster-stat-label">Peak Ratio</div>
+                            <div class="cluster-stat-value">${cp.peak_ratio}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderSavingsPie(data) {
+            const b = data.savings.breakdown;
+            new Chart(document.getElementById('savingsPieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['HVAC', 'Lighting', 'Equipment', 'Other'],
+                    datasets: [{
+                        data: [b.hvac, b.lighting, b.equipment, b.other],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(139, 92, 246, 0.8)',
+                            'rgba(107, 114, 128, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(139, 92, 246, 1)',
+                            'rgba(107, 114, 128, 1)'
+                        ],
+                        borderWidth: 2,
+                        hoverBorderWidth: 3,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    ...chartDefaults,
+                    cutout: '55%',
+                    scales: {},
+                    plugins: {
+                        ...chartDefaults.plugins,
+                        datalabels: {
+                            color: '#f0f4ff',
+                            font: { family: 'JetBrains Mono', size: 11, weight: '600' },
+                            formatter: (val) => '$' + Number(val).toLocaleString(),
+                            anchor: 'end',
+                            align: 'end',
+                            offset: 5
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderClusterPie(data) {
+            const labels = data.cluster_profiles.map(c => c.label);
+            const values = data.cluster_profiles.map(c => c.count);
+            const colors = data.cluster_profiles.map((_, i) => COLORS.clusterColors[i % COLORS.clusterColors.length]);
+
+            new Chart(document.getElementById('clusterPieChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: colors.map(c => c + 'cc'),
+                        borderColor: colors,
+                        borderWidth: 2,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    ...chartDefaults,
+                    cutout: '55%',
+                    scales: {},
+                    plugins: {
+                        ...chartDefaults.plugins,
+                        datalabels: {
+                            color: '#f0f4ff',
+                            font: { family: 'JetBrains Mono', size: 11, weight: '600' },
+                            formatter: (val, ctx) => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                return ((val / total) * 100).toFixed(1) + '%';
+                            },
+                            anchor: 'end',
+                            align: 'end',
+                            offset: 5
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderProfileChart(data) {
+            const hours = Array.from({length: 24}, (_, i) => i + ':00');
+            const hp = data.hourly_profiles;
+
+            const weekdayTotal = Object.values(hp.weekday.total_kwh);
+            const weekendTotal = Object.values(hp.weekend.total_kwh);
+
+            new Chart(document.getElementById('profileChart'), {
+                type: 'line',
+                data: {
+                    labels: hours,
+                    datasets: [
+                        {
+                            label: 'Weekday Avg (kWh)',
+                            data: weekdayTotal,
+                            borderColor: COLORS.blue,
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointHoverRadius: 6,
+                            borderWidth: 2.5
+                        },
+                        {
+                            label: 'Weekend Avg (kWh)',
+                            data: weekendTotal,
+                            borderColor: COLORS.pink,
+                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                            fill: true,
+                            tension: 0.4,
+                            pointRadius: 3,
+                            pointHoverRadius: 6,
+                            borderWidth: 2.5
+                        }
+                    ]
+                },
+                options: {
+                    ...chartDefaults,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        ...chartDefaults.scales,
+                        y: { ...chartDefaults.scales.y, title: { display: true, text: 'kWh', color: '#5a6580', font: { family: 'Inter', size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        function renderForecastChart(data) {
+            const hours = Array.from({length: 24}, (_, i) => i + ':00');
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const dayColors = [COLORS.blue, COLORS.cyan, COLORS.purple, COLORS.green, COLORS.orange, COLORS.pink, COLORS.red];
+
+            const datasets = days.map((day, i) => ({
+                label: day,
+                data: data.forecasts[day],
+                borderColor: dayColors[i],
+                backgroundColor: 'transparent',
+                tension: 0.4,
+                pointRadius: i >= 5 ? 3 : 1,
+                borderWidth: i >= 5 ? 2.5 : 1.5,
+                borderDash: i >= 5 ? [5, 5] : []
+            }));
+
+            new Chart(document.getElementById('forecastChart'), {
+                type: 'line',
+                data: { labels: hours, datasets },
+                options: {
+                    ...chartDefaults,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        ...chartDefaults.scales,
+                        y: { ...chartDefaults.scales.y, title: { display: true, text: 'Predicted kWh', color: '#5a6580', font: { family: 'Inter', size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        function renderMonthlyChart(data) {
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const mt = data.monthly_trends;
+            const weekdayData = monthNames.map((_, i) => mt[i + 1] ? mt[i + 1].weekday : 0);
+            const weekendData = monthNames.map((_, i) => mt[i + 1] ? mt[i + 1].weekend : 0);
+
+            new Chart(document.getElementById('monthlyChart'), {
+                type: 'bar',
+                data: {
+                    labels: monthNames,
+                    datasets: [
+                        {
+                            label: 'Weekday',
+                            data: weekdayData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                            borderColor: COLORS.blue,
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Weekend',
+                            data: weekendData,
+                            backgroundColor: 'rgba(236, 72, 153, 0.7)',
+                            borderColor: COLORS.pink,
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    ...chartDefaults,
+                    scales: {
+                        ...chartDefaults.scales,
+                        y: { ...chartDefaults.scales.y, title: { display: true, text: 'Avg kWh', color: '#5a6580', font: { family: 'Inter', size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        function renderComponentPie(data) {
+            const hp = data.hourly_profiles.weekend;
+            const hvacTotal = Object.values(hp.hvac_kwh).reduce((a, b) => a + b, 0);
+            const lightTotal = Object.values(hp.lighting_kwh).reduce((a, b) => a + b, 0);
+            const equipTotal = Object.values(hp.equipment_kwh).reduce((a, b) => a + b, 0);
+
+            new Chart(document.getElementById('componentPieChart'), {
+                type: 'pie',
+                data: {
+                    labels: ['HVAC', 'Lighting', 'Equipment'],
+                    datasets: [{
+                        data: [hvacTotal.toFixed(1), lightTotal.toFixed(1), equipTotal.toFixed(1)],
+                        backgroundColor: [
+                            'rgba(6, 182, 212, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(139, 92, 246, 0.8)'
+                        ],
+                        borderColor: [COLORS.cyan, COLORS.orange, COLORS.purple],
+                        borderWidth: 2,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    ...chartDefaults,
+                    scales: {},
+                    plugins: {
+                        ...chartDefaults.plugins,
+                        datalabels: {
+                            color: '#f0f4ff',
+                            font: { family: 'JetBrains Mono', size: 12, weight: '600' },
+                            formatter: (val, ctx) => {
+                                const total = ctx.dataset.data.reduce((a, b) => parseFloat(a) + parseFloat(b), 0);
+                                return ((val / total) * 100).toFixed(1) + '%';
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderDipChart(data) {
+            const hours = Array.from({length: 24}, (_, i) => i + ':00');
+            const hp = data.hourly_profiles;
+            const weekdayTotal = Object.values(hp.weekday.total_kwh);
+            const weekendTotal = Object.values(hp.weekend.total_kwh);
+            const dipData = weekdayTotal.map((wd, i) => Math.max(wd - weekendTotal[i], 0));
+
+            new Chart(document.getElementById('dipChart'), {
+                type: 'bar',
+                data: {
+                    labels: hours,
+                    datasets: [{
+                        label: 'Weekend Dip (kWh)',
+                        data: dipData,
+                        backgroundColor: dipData.map(v => v > 20 ? 'rgba(239, 68, 68, 0.7)' : v > 10 ? 'rgba(245, 158, 11, 0.7)' : 'rgba(16, 185, 129, 0.7)'),
+                        borderColor: dipData.map(v => v > 20 ? COLORS.red : v > 10 ? COLORS.orange : COLORS.green),
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    ...chartDefaults,
+                    plugins: {
+                        ...chartDefaults.plugins,
+                        legend: { display: false }
+                    },
+                    scales: {
+                        ...chartDefaults.scales,
+                        y: {
+                            ...chartDefaults.scales.y,
+                            title: { display: true, text: 'Dip (kWh)', color: '#5a6580', font: { family: 'Inter', size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>

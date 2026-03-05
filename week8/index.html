@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parking Lot Lighting Forecast — Sensor-Based Polynomial Regression Dashboard</title>
+  <meta name="description" content="Real-time parking lot lighting forecast system using IoT sensor vehicle-count data and polynomial regression. Features live bar charts, anomaly detection, and predictive light-level optimization." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Toast Alerts -->
+  <div id="alert-container" class="alert-container"></div>
+
+  <div class="app-wrapper">
+
+    <!-- ====== HEADER ====== -->
+    <header class="header">
+      <div class="header-left">
+        <div class="logo-icon">🅿️</div>
+        <div>
+          <h1>Parking Lot Lighting Forecast</h1>
+          <p class="header-subtitle">Sensor-Based Polynomial Regression · Real-Time Dashboard</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="clock" id="clock">--:--:-- --</div>
+        <div class="alert-indicator" title="Anomaly log">
+          🔔 Alerts
+          <span class="alert-badge" id="alert-badge">0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ====== CONTROLS ====== -->
+    <div class="controls-bar">
+      <div class="control-group">
+        <span class="control-label">Zone</span>
+        <select id="zone-select">
+          <option value="Zone A">Zone A (120 slots)</option>
+          <option value="Zone B">Zone B (90 slots)</option>
+          <option value="Zone C">Zone C (150 slots)</option>
+          <option value="Zone D">Zone D (60 slots)</option>
+          <option value="Zone E">Zone E (100 slots)</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <span class="control-label">Poly Degree</span>
+        <input type="range" id="degree-slider" min="1" max="6" value="3" />
+        <span class="degree-display" id="degree-value">3</span>
+      </div>
+      <div class="control-group">
+        <button class="btn" id="simulate-btn">▶ Start Live Feed</button>
+        <button class="btn btn-danger" id="reset-btn">⟲ Reset</button>
+      </div>
+    </div>
+
+    <!-- ====== STAT CARDS ====== -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">🚗</div>
+        <div class="stat-value" id="stat-vehicles">0</div>
+        <div class="stat-label">Current Vehicles</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💡</div>
+        <div class="stat-value" id="stat-lux">0 lux</div>
+        <div class="stat-label">Predicted Light Level</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">📊</div>
+        <div class="stat-value" id="stat-occupancy">0%</div>
+        <div class="stat-label">Zone Occupancy</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-value" id="stat-anomalies">0</div>
+        <div class="stat-label">Anomalies Detected</div>
+      </div>
+    </div>
+
+    <!-- ====== ZONE CARDS ====== -->
+    <div class="zone-cards-section">
+      <div class="section-title">Parking Zones — Live Status</div>
+      <div class="zone-cards-grid" id="zone-cards"></div>
+    </div>
+
+    <!-- ====== CHARTS GRID ====== -->
+    <div class="charts-grid">
+
+      <!-- Live Bar Chart -->
+      <div class="chart-panel">
+        <div class="chart-title"><span class="dot dot-blue"></span> Live Vehicle Count & Predicted Lighting</div>
+        <div class="chart-container">
+          <canvas id="live-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Regression Scatter -->
+      <div class="chart-panel">
+        <div class="chart-title"><span class="dot dot-pink"></span> Polynomial Regression — Occupancy vs Light</div>
+        <div class="chart-container">
+          <canvas id="regression-chart"></canvas>
+        </div>
+        <div class="reg-info">
+          <div class="reg-info-item">
+            <div class="reg-info-label">Equation</div>
+            <div class="reg-info-value" id="regression-eq">—</div>
+          </div>
+          <div class="reg-info-item">
+            <div class="reg-info-label">R² Score</div>
+            <div class="reg-info-value" id="regression-r2">—</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Trend Line (full width) -->
+      <div class="chart-panel full-width">
+        <div class="chart-title"><span class="dot dot-teal"></span> Real-Time Trend — Selected Zone</div>
+        <div class="chart-container">
+          <canvas id="trend-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== BOTTOM: DATA TABLE + ANOMALY TIMELINE ====== -->
+    <div class="bottom-grid">
+      <div class="table-panel">
+        <div class="chart-title"><span class="dot dot-amber"></span> 24-Hour Sensor Data — <span id="table-zone-label" style="color:var(--accent-blue)">Zone A</span></div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Hour</th>
+                <th>Vehicles</th>
+                <th>Occupancy</th>
+                <th>Actual Lux</th>
+                <th>Predicted Lux</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="data-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="timeline-panel">
+        <div class="chart-title"><span class="dot dot-blue" style="background:var(--accent-red)"></span> Anomaly Timeline</div>
+        <div class="timeline-scroll" id="anomaly-timeline">
+          <p style="color:var(--text-muted); font-size:0.8rem; padding:10px 0;">No anomalies detected yet. Start the live feed to monitor.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== DATASET INFO ====== -->
+    <div class="dataset-info">
+      <h3>📂 Where to Get Real-World Datasets</h3>
+      <div class="dataset-grid">
+        <div class="dataset-item">
+          <span class="ds-icon">🇦🇺</span>
+          <div class="ds-text">
+            <span class="ds-name">City of Melbourne — On-Street Parking Sensor Data</span>
+            <span class="ds-desc">Real IoT sensor data from 5,000+ parking bays across Melbourne CBD. Includes bay ID, status, timestamps.</span>
+            <a class="ds-link" href="https://data.melbourne.vic.gov.au/" target="_blank" rel="noopener">data.melbourne.vic.gov.au ↗</a>
+          </div>
+        </div>
+        <div class="dataset-item">
+          <span class="ds-icon">🇬🇧</span>
+          <div class="ds-text">
+            <span class="ds-name">Birmingham Parking (UCI ML Repository)</span>
+            <span class="ds-desc">Parking occupancy over time from multiple car parks in Birmingham, UK. Great for regression model training.</span>
+            <a class="ds-link" href="https://archive.ics.uci.edu/ml/datasets/Parking+Birmingham" target="_blank" rel="noopener">UCI ML Repo ↗</a>
+          </div>
+        </div>
+        <div class="dataset-item">
+          <span class="ds-icon">🇺🇸</span>
+          <div class="ds-text">
+            <span class="ds-name">Los Angeles Parking Occupancy — LA Open Data</span>
+            <span class="ds-desc">Real-time and historical parking meter & lot occupancy from the City of Los Angeles open-data portal.</span>
+            <a class="ds-link" href="https://data.lacity.org/" target="_blank" rel="noopener">data.lacity.org ↗</a>
+          </div>
+        </div>
+        <div class="dataset-item">
+          <span class="ds-icon">🛠️</span>
+          <div class="ds-text">
+            <span class="ds-name">DIY — Arduino / Raspberry Pi Sensors</span>
+            <span class="ds-desc">Deploy HC-SR04 ultrasonic or IR break-beam sensors → push via MQTT → InfluxDB → CSV/JSON export.</span>
+            <a class="ds-link" href="https://www.arduino.cc/" target="_blank" rel="noopener">arduino.cc ↗</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== FOOTER ====== -->
+    <footer class="footer">
+      Parking Lot Lighting Forecast · Polynomial Regression Dashboard · Sensor-Based Analytics © 2026
+    </footer>
+
+  </div><!-- /app-wrapper -->
+
+  <!-- Scripts (order matters: data → regression → app) -->
+  <script src="data.js"></script>
+  <script src="regression.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

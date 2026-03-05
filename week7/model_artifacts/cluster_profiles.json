@@ -1,0 +1,38 @@
+{
+  "0": {
+    "label": "Standard Weekday",
+    "count": 586,
+    "avg_kwh": 87.2,
+    "avg_occupancy": 46.3,
+    "weekend_pct": 0.0,
+    "avg_temp": 20.5,
+    "hvac_share": 20.7,
+    "lighting_share": 9.2,
+    "equipment_share": 15.1,
+    "peak_ratio": 2.46
+  },
+  "1": {
+    "label": "Weekend Low-Usage",
+    "count": 314,
+    "avg_kwh": 44.22,
+    "avg_occupancy": 8.3,
+    "weekend_pct": 99.7,
+    "avg_temp": 24.2,
+    "hvac_share": 21.9,
+    "lighting_share": 9.5,
+    "equipment_share": 15.0,
+    "peak_ratio": 1.78
+  },
+  "2": {
+    "label": "High HVAC Demand",
+    "count": 196,
+    "avg_kwh": 115.35,
+    "avg_occupancy": 46.3,
+    "weekend_pct": 0.0,
+    "avg_temp": 35.1,
+    "hvac_share": 20.7,
+    "lighting_share": 9.2,
+    "equipment_share": 15.1,
+    "peak_ratio": 2.47
+  }
+}
